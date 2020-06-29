@@ -2,8 +2,10 @@
 
 namespace Drupal\drudbal\Driver\Database\dbal;
 
+use Drupal\Core\Database\DatabaseExceptionWrapper;
 use Drupal\Core\Database\Query\SelectInterface;
 use Drupal\Core\Database\Query\Update as QueryUpdate;
+use Doctrine\DBAL\Exception\LockWaitTimeoutException as DBALLockWaitTimeoutException;
 
 /**
  * DruDbal implementation of \Drupal\Core\Database\Query\Update.
@@ -26,7 +28,20 @@ class Update extends QueryUpdate {
    * {@inheritdoc}
    */
   public function execute() {
-    return $this->connection->query((string) $this, $this->dbalQuery->getParameters(), $this->queryOptions);
+    // SQLite can raise "General error: 5 database is locked" errors when too
+    // many concurrent operations are attempted on the db. We wait and retry
+    // in such circumstance.
+    for ($i = 0; $i < 50; $i++) {
+      try {
+        return $this->connection->query((string) $this, $this->dbalQuery->getParameters(), $this->queryOptions);
+      }
+      catch (DatabaseExceptionWrapper $e) {
+        if (!$e->getPrevious() instanceof DBALLockWaitTimeoutException || $i === 99) {
+          throw $e;
+        }
+        usleep(100000);
+      }
+    }
   }
 
   /**

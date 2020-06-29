@@ -15,59 +15,61 @@ branches:
 
 jobs:
   include:
-    - env: DRUDBAL_ENV="mysql" TEST_ARGS="--group Database"
+#    - env: DRUDBAL_ENV="mysql" TEST_ARGS="--group Database"
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="dbal/mariadb" TEST_ARGS="--group Database,Entity,Field" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
+#      addons:
+#        mariadb: '10.3'
+#    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group Database,Entity,Field" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group Installer,Cache,Config" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Cache\\EndOfTransactionQueriesTest"]'
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group field"
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group file"
+    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="modules/file/tests/src/Functional/DownloadTest.php"
       services:
         - mysql
-    - env: DRUDBAL_ENV="dbal/mariadb" TEST_ARGS="--group Database,Entity,Field" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
-      addons:
-        mariadb: '10.3'
-    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group Database,Entity,Field" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group Installer,Cache,Config" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Cache\\EndOfTransactionQueriesTest"]'
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group field"
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group file"
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group views"
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group Database,Entity,Field" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group Installer,Cache,Config" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Cache\\EndOfTransactionQueriesTest"]'
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group field"
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group file"
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group views"
-      services:
-        - mysql
-    - env: DRUDBAL_ENV="sqlite" TEST_ARGS="--group Database"
-    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group Database,Entity,Field" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
-    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group Installer,Cache,Config" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Cache\\EndOfTransactionQueriesTest"]'
-    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group field"
-    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group file" PHPUNIT_SKIP_CLASS='["Drupal\\Tests\\file\\Functional\\DownloadTest"]'
-    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group views"
-    - php: 7.3
-      env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group Database" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
-    - stage: Allow Failures
-      env: DRUDBAL_ENV="dbal/sqlite/memory" TEST_ARGS="--group Database,Installer,Cache,Config,Entity,Field"
+#    - env: DRUDBAL_ENV="dbal/mysql" TEST_ARGS="--group views"
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group Database,Entity,Field" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group Installer,Cache,Config" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Cache\\EndOfTransactionQueriesTest"]'
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group field"
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group file"
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="dbal/mysqli" TEST_ARGS="--group views"
+#      services:
+#        - mysql
+#    - env: DRUDBAL_ENV="sqlite" TEST_ARGS="--group Database"
+#    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group Database,Entity,Field" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
+#    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group Installer,Cache,Config" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Cache\\EndOfTransactionQueriesTest"]'
+#    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group field"
+    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="modules/file/tests/src/Functional/DownloadTest.php"
+#    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group file" PHPUNIT_SKIP_CLASS='["Drupal\\Tests\\file\\Functional\\DownloadTest"]'
+#    - env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group views"
+#    - php: 7.3
+#      env: DRUDBAL_ENV="dbal/sqlite/file" TEST_ARGS="--group Database" PHPUNIT_SKIP_CLASS='["Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest"]'
+#    - stage: Allow Failures
+#      env: DRUDBAL_ENV="dbal/sqlite/memory" TEST_ARGS="--group Database,Installer,Cache,Config,Entity,Field"
   fast_finish: true
   allow_failures:
     - env: DRUDBAL_ENV="dbal/sqlite/memory" TEST_ARGS="--group Database,Installer,Cache,Config,Entity,Field"
 
 cache:
   directories:
-    #- $HOME/drupal_staging
+    - $HOME/drupal_staging
     #- $ORACLE_DOWNLOAD_DIR
     - $HOME/.composer/cache
 

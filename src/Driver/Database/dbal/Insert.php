@@ -2,8 +2,10 @@
 
 namespace Drupal\drudbal\Driver\Database\dbal;
 
+use Drupal\Core\Database\DatabaseExceptionWrapper;
 use Drupal\Core\Database\IntegrityConstraintViolationException;
 use Drupal\Core\Database\Query\Insert as QueryInsert;
+use Doctrine\DBAL\Exception\LockWaitTimeoutException as DBALLockWaitTimeoutException;
 
 /**
  * DruDbal implementation of \Drupal\Core\Database\Query\Insert.
@@ -47,7 +49,7 @@ class Insert extends QueryInsert {
             $values[':db_insert_placeholder_' . $max_placeholder++] = $value;
           }
           try {
-            $last_insert_id = $this->connection->query($sql, $values, $this->queryOptions);
+            $last_insert_id = $this->doQuery($sql, $values, $this->queryOptions);
           }
           catch (IntegrityConstraintViolationException $e) {
             // Abort the entire insert in case of integrity constraint violation
@@ -62,7 +64,7 @@ class Insert extends QueryInsert {
       else {
         // If there are no values, then this is a default-only query. We still
         // need to handle that.
-        $last_insert_id = $this->connection->query($sql, [], $this->queryOptions);
+        $last_insert_id = $this->doQuery($sql, [], $this->queryOptions);
       }
     }
     else {
@@ -77,7 +79,7 @@ class Insert extends QueryInsert {
           $values[':db_insert_placeholder_' . $max_placeholder++] = $value;
         }
         try {
-          $last_insert_id = $this->connection->query($sql, $values, $this->queryOptions);
+          $last_insert_id = $this->doQuery($sql, $values, $this->queryOptions);
         }
         catch (IntegrityConstraintViolationException $e) {
           // Abort the entire insert in case of integrity constraint violation
@@ -94,6 +96,26 @@ class Insert extends QueryInsert {
     $this->insertValues = [];
 
     return $last_insert_id;
+  }
+
+  /**
+   * Wraps a query on the connection object to enable retrying.
+   */
+  protected function doQuery(string $query, array $args = [], array $options = []) {
+    // SQLite can raise "General error: 5 database is locked" errors when too
+    // many concurrent operations are attempted on the db. We wait and retry
+    // in such circumstance.
+    for ($i = 0; $i < 50; $i++) {
+      try {
+        return $this->connection->query($query, $args, $options);
+      }
+      catch (DatabaseExceptionWrapper $e) {
+        if (!$e->getPrevious() instanceof DBALLockWaitTimeoutException || $i === 99) {
+          throw $e;
+        }
+        usleep(100000);
+      }
+    }
   }
 
   /**

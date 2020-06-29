@@ -2,9 +2,11 @@
 
 namespace Drupal\drudbal\Driver\Database\dbal;
 
+use Drupal\Core\Database\DatabaseExceptionWrapper;
 use Drupal\Core\Database\IntegrityConstraintViolationException;
 use Drupal\Core\Database\Query\Upsert as QueryUpsert;
 use Doctrine\DBAL\Exception\DeadlockException as DBALDeadlockException;
+use Doctrine\DBAL\Exception\LockWaitTimeoutException as DBALLockWaitTimeoutException;
 
 /**
  * DruDbal implementation of \Drupal\Core\Database\Query\Upsert.
@@ -44,7 +46,7 @@ class Upsert extends QueryUpsert {
           $values[':db_insert_placeholder_' . $max_placeholder++] = $value;
         }
         try {
-          $last_insert_id = $this->connection->query($sql, $values, $this->queryOptions);
+          $last_insert_id = $this->doQuery($sql, $values, $this->queryOptions);
         }
         catch (IntegrityConstraintViolationException $e) {
           // Update the record at key in case of integrity constraint
@@ -57,7 +59,7 @@ class Upsert extends QueryUpsert {
       // If there are no values, then this is a default-only query. We still
       // need to handle that.
       try {
-        $last_insert_id = $this->connection->query($sql, [], $this->queryOptions);
+        $last_insert_id = $this->doQuery($sql, [], $this->queryOptions);
       }
       catch (IntegrityConstraintViolationException $e) {
         // Update the record at key in case of integrity constraint
@@ -70,6 +72,29 @@ class Upsert extends QueryUpsert {
     $this->insertValues = [];
 
     return $last_insert_id;
+  }
+
+  /**
+   * Wraps a query on the connection object to enable retrying.
+   */
+  protected function doQuery(string $query, array $args = [], array $options = []) {
+    // SQLite can raise "General error: 5 database is locked" errors when too
+    // many concurrent operations are attempted on the db. We wait and retry
+    // in such circumstance.
+    for ($i = 0; $i < 60; $i++) {
+      try {
+        return $this->connection->query($query, $args, $options);
+      }
+      catch (DatabaseExceptionWrapper $e) {
+        //    if (!$e->getPrevious() instanceof DBALLockWaitTimeoutException || $i === 999) {
+        //      throw $e;
+        //    }
+        if (!$e->getPrevious() instanceof DBALLockWaitTimeoutException) {
+          throw $e;
+        }
+        usleep(2000000);
+      }
+    }
   }
 
   /**
