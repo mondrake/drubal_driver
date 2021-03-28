@@ -1,0 +1,170 @@
+diff --git a/src/Platforms/OraclePlatform.php b/src/Platforms/OraclePlatform.php
+index cbbfb07d1..fe64f81aa 100644
+--- a/src/Platforms/OraclePlatform.php
++++ b/src/Platforms/OraclePlatform.php
+@@ -409,6 +409,33 @@ class OraclePlatform extends AbstractPlatform
+         return $sql;
+     }
+
++    /**
++     * Returns the list of all the indexes in the database.
++     *
++     * @param string $database
++     *
++     * @return string
++     */
++    public function getListAllIndexesSQL(string $database): string
++    {
++        $databaseIdentifier = $this->normalizeIdentifier($database);
++        $quotedDatabaseIdentifier = $this->quoteStringLiteral($databaseIdentifier->getName());
++        return <<<SQL
++          SELECT ind_col.table_name as table_name,
++                 ind_col.index_name AS name,
++                 ind.index_type AS type,
++                 decode(ind.uniqueness, 'NONUNIQUE', 0, 'UNIQUE', 1) AS is_unique,
++                 ind_col.column_name AS column_name,
++                 ind_col.column_position AS column_pos,
++                 con.constraint_type AS is_primary
++            FROM all_ind_columns ind_col
++       LEFT JOIN all_indexes ind ON ind.owner = ind_col.index_owner AND ind.index_name = ind_col.index_name
++       LEFT JOIN all_constraints con ON  con.owner = ind_col.index_owner AND con.index_name = ind_col.index_name
++           WHERE ind_col.index_owner = $quotedDatabaseIdentifier
++        ORDER BY ind_col.table_name, ind_col.index_name, ind_col.column_position
++SQL;
++    }
++
+     /**
+      * {@inheritDoc}
+      *
+@@ -620,6 +647,33 @@ END;';
+             : $identifierName;
+     }
+
++    /**
++     * Returns the list of all the foreign keys in the database.
++     *
++     * @param string $database
++     *
++     * @return string
++     */
++    public function getListAllForeignKeysSQL(string $database): string
++    {
++        $databaseIdentifier = $this->normalizeIdentifier($database);
++        $quotedDatabaseIdentifier = $this->quoteStringLiteral($databaseIdentifier->getName());
++        return <<<SQL
++          SELECT cols.table_name,
++                 alc.constraint_name,
++                 alc.DELETE_RULE,
++                 cols.column_name "local_column",
++                 cols.position,
++                 r_cols.table_name "references_table",
++                 r_cols.column_name "foreign_column"
++            FROM all_cons_columns cols
++       LEFT JOIN all_constraints alc ON alc.owner = cols.owner AND alc.constraint_name = cols.constraint_name
++       LEFT JOIN all_cons_columns r_cols ON r_cols.owner = alc.r_owner AND r_cols.constraint_name = alc.r_constraint_name AND r_cols.position = cols.position
++           WHERE cols.owner = $quotedDatabaseIdentifier AND alc.constraint_type = 'R'
++        ORDER BY cols.table_name, cols.constraint_name, cols.position
++SQL;
++    }
++
+     /**
+      * {@inheritDoc}
+      */
+@@ -663,6 +717,27 @@ END;';
+         return 'SELECT * FROM user_constraints WHERE table_name = ' . $table;
+     }
+
++    /**
++     * Returns the list of all the columns of all the tables in the database.
++     *
++     * @param string $database
++     *
++     * @return string
++     */
++    public function getListAllColumnsSQL(string $database): string
++    {
++        $databaseIdentifier = $this->normalizeIdentifier($database);
++        $quotedDatabaseIdentifier = $this->quoteStringLiteral($databaseIdentifier->getName());
++        return <<<SQL
++          SELECT c.*,
++                 d.comments AS comments
++            FROM all_tab_columns c
++       LEFT JOIN all_col_comments d ON d.OWNER = c.OWNER AND d.TABLE_NAME = c.TABLE_NAME AND d.COLUMN_NAME = c.COLUMN_NAME
++           WHERE c.owner = $quotedDatabaseIdentifier
++        ORDER BY c.table_name, c.column_id
++SQL;
++    }
++
+     /**
+      * {@inheritDoc}
+      */
+diff --git a/src/Schema/OracleSchemaManager.php b/src/Schema/OracleSchemaManager.php
+index 148f0b922..9bfb0461d 100644
+--- a/src/Schema/OracleSchemaManager.php
++++ b/src/Schema/OracleSchemaManager.php
+@@ -22,6 +22,65 @@ use const CASE_LOWER;
+  */
+ class OracleSchemaManager extends AbstractSchemaManager
+ {
++    /**
++     * {@inheritdoc}
++     */
++    public function listTables()
++    {
++        $currentDatabase = $this->_conn->getDatabase();
++
++        $tableNames = $this->listTableNames();
++
++        // Get all column definitions in one database call.
++        $columnsByTable = $this->getAssetRecordsByTable($this->_platform->getListAllColumnsSQL($currentDatabase));
++
++        // Get all foreign keys definitions in one database call.
++        $foreignKeysByTable = $this->getAssetRecordsByTable($this->_platform->getListAllForeignKeysSQL($currentDatabase));
++
++        // Get all indexes definitions in one database call.
++        $indexesByTable = $this->getAssetRecordsByTable($this->_platform->getListAllIndexesSQL($currentDatabase));
++
++        $tables = [];
++        foreach ($tableNames as $tableName) {
++            $unquotedTableName = trim($tableName, '"');
++
++            $columns = $this->_getPortableTableColumnList($tableName, null, $columnsByTable[$unquotedTableName]);
++
++            $foreignKeys = [];
++            if (isset($foreignKeysByTable[$unquotedTableName])) {
++                $foreignKeys = $this->_getPortableTableForeignKeysList($foreignKeysByTable[$unquotedTableName]);
++            }
++
++            $indexes = [];
++            if (isset($indexesByTable[$unquotedTableName])) {
++                $indexes = $this->_getPortableTableIndexesList($indexesByTable[$unquotedTableName], $tableName);
++            }
++
++            $tables[] = new Table($tableName, $columns, $indexes, [], $foreignKeys, []);
++        }
++
++        return $tables;
++    }
++
++    /**
++     * Helper method to group a set of asset records by the table name.
++     *
++     * @param string $sql An SQL statement to be executed, that contains a
++     *                    TABLE_NAME field for grouping.
++     *
++     * @return array An associative array with key being the table name, and
++     *               value a simple array of records associated with the table.
++     */
++    private function getAssetRecordsByTable(string $sql): array
++    {
++        $input = $this->_conn->fetchAllAssociative($sql);
++        $output = [];
++        foreach ($input as $record) {
++            $output[$record['TABLE_NAME']][] = $record;
++        }
++        return $output;
++    }
++
+     /**
+      * {@inheritdoc}
+      */

@@ -23,82 +23,19 @@ jobs:
 
 #################################
 
-  sqlite-pdo:
-    name: "SQLite with PDO"
+  oracle-pdo:
+    name: "Oracle with PDO"
     runs-on: ubuntu-20.04
     env:
-        DRUDBAL_ENV: "dbal/sqlite/file"
-        DBAL_URL: "sqlite://localhost/sites/drudbal.sqlite"
-        SIMPLETEST_DB: "dbal://localhost/sites/drudbal.sqlite?module=drudbal&dbal_driver=pdo_sqlite"
+        DRUDBAL_ENV: "dbal/pdo_oci"
+        DBAL_URL: "pdo-oci://DRUDBAL:ORACLE@0.0.0.0:1521/XE"
+        SIMPLETEST_DB: "dbal://DRUDBAL:ORACLE@0.0.0.0:1521/XE?module=drudbal&dbal_driver=pdo_oci#dru"
 
-    strategy:
-      fail-fast: false
-      matrix:
-        php-version:
-          - "7.4"
-#          - "8.0"
-        test-args:
-          - "--group Database"
-
-    steps:
-    - name: Install PHP
-      uses: "shivammathur/setup-php@v2"
-      with:
-        php-version: "${{ matrix.php-version }}"
-        coverage: "none"
-        extensions: "pdo_mysql"
-        ini-values: "zend.assertions=1"
-
-    - name: Checkout Drupal
-      run: git clone --depth=5 --branch=$DRUDBAL_DRUPAL_VERSION http://git.drupal.org/project/drupal.git .
-
-    - name: Checkout DruDbal
-      uses: actions/checkout@v2
-      with:
-        path: drudbal_staging
-
-    - name: Patch Drupal
-      run: ./drudbal_staging/tests/github/drupal_patch.sh
-
-    - name: Install Composer dependencies
-      run: |
-        composer install --no-progress --ansi
-        composer run-script drupal-phpunit-upgrade
-        composer require drush/drush --no-progress --ansi
-
-    - name: Composer require DruDbal from local staging
-      run: |
-        git -C drudbal_staging checkout -b test-run-branch
-        composer config repositories.test-run '{"type": "path", "url": "drudbal_staging", "options": {"symlink": false}}'
-        composer require "mondrake/drudbal:dev-test-run-branch" --no-progress --ansi
-
-    - name: Install Drupal
-      run: |
-        cp modules/contrib/drudbal/tests/github/install_* .
-        # Use the custom installer.
-        php install_cli.php
-        vendor/bin/drush runserver localhost:8080 &
-        sleep 1s
-
-    - name: Report installation
-      run: |
-        php install_report.php
-        vendor/bin/drush core:status
-        vendor/bin/drush core:requirements
-        vendor/bin/drush pml --type=module --no-core
-
-    - name: Run test ${{ matrix.test-args }}
-      run: vendor/bin/phpunit -c core --color=always ${{ matrix.test-args }}
-
-#################################
-
-  mysql-pdo:
-    name: "MySql with PDO"
-    runs-on: ubuntu-latest
-    env:
-        DRUDBAL_ENV: "dbal/mysql"
-        DBAL_URL: "mysql://root:@0.0.0.0:3306/drudbal"
-        SIMPLETEST_DB: "dbal://root:@0.0.0.0:3306/drudbal?module=drudbal&dbal_driver=pdo_mysql"
+    services:
+      oracle:
+        image: "wnameless/oracle-xe-11g-r2"
+        ports:
+          - "1521:1521"
 
     strategy:
       fail-fast: false
@@ -111,16 +48,6 @@ jobs:
 #          - "--group Cache,Config"
 #          - "--group field,Field"
 #          - "--group file"
-#          - "--group views"
-
-    services:
-      mysql:
-        image: "mysql:5.7"
-        options: >-
-          -e MYSQL_ALLOW_EMPTY_PASSWORD=yes
-          -e MYSQL_DATABASE=drudbal
-        ports:
-          - "3306:3306"
 
     steps:
     - name: Install PHP
@@ -128,7 +55,7 @@ jobs:
       with:
         php-version: "${{ matrix.php-version }}"
         coverage: "none"
-        extensions: "pdo_mysql"
+        extensions: "pdo_oci"
         ini-values: "zend.assertions=1"
 
     - name: Checkout Drupal
@@ -142,6 +69,9 @@ jobs:
     - name: Patch Drupal
       run: ./drudbal_staging/tests/github/drupal_patch.sh
 
+#    - name: Test Drupal patch
+#      run: git apply -v drudbal_staging/test.patch
+
     - name: Install Composer dependencies
       run: |
         composer install --no-progress --ansi
@@ -154,20 +84,51 @@ jobs:
         composer config repositories.test-run '{"type": "path", "url": "drudbal_staging", "options": {"symlink": false}}'
         composer require "mondrake/drudbal:dev-test-run-branch" --no-progress --ansi
 
-    - name: Install Drupal
+    - name: Patch doctrine/dbal
+      run: |
+        patch -d vendor/doctrine/dbal -p1 < modules/contrib/drudbal/tests/github/dbal/pdo_oci/dbal.patch
+#        curl https://patch-diff.githubusercontent.com/raw/mondrake/dbal/pull/2.patch | patch -d vendor/doctrine/dbal -p1
+
+    - name: Create Oracle schema
       run: |
         cp modules/contrib/drudbal/tests/github/install_* .
-        # Use the custom installer.
-        php install_cli.php
-        vendor/bin/drush runserver localhost:8080 &
-        sleep 1s
+        php install_oracle.php
 
-    - name: Report installation
-      run: |
-        php install_report.php
-        vendor/bin/drush core:status
-        vendor/bin/drush core:requirements
-        vendor/bin/drush pml --type=module --no-core
+#    - name: Install Drupal
+#      run: |
+#        # Use the custom installer.
+#        php install_cli.php
+#        vendor/bin/drush runserver localhost:8080 &
+#        sleep 5s
+
+#    - name: Report installation
+#      continue-on-error: true
+#      run: |
+#        php install_report.php
+#        vendor/bin/drush pml --type=module --no-core
+#        vendor/bin/drush core:status
+#        vendor/bin/drush core:requirements
 
     - name: Run test ${{ matrix.test-args }}
+      continue-on-error: true
       run: vendor/bin/phpunit -c core --color=always ${{ matrix.test-args }}
+
+#    - name: Run test a
+#      continue-on-error: true
+#      run: vendor/bin/phpunit -c core --color=always modules/contrib/drudbal/tests/src/Kernel/SchemaTest.php
+
+#    - name: Run test b
+#      continue-on-error: true
+#      run: vendor/bin/phpunit -c core --color=always core/tests/Drupal/KernelTests/Core/Database/InsertTest.php
+
+#    - name: Run test c
+#      continue-on-error: true
+#      run: vendor/bin/phpunit -c core --color=always core/tests/Drupal/KernelTests/Core/Entity/EntityDefinitionUpdateTest.php
+
+#    - name: Run test d
+#      continue-on-error: true
+#      run: vendor/bin/phpunit -c core --color=always core/tests/Drupal/KernelTests/Core/Entity/EntityCrudHookTest.php
+
+#    - name: Run test e
+#      continue-on-error: true
+#      run: vendor/bin/phpunit -c core --color=always core/tests/Drupal/KernelTests/Core/Entity/EntityQueryAggregateTest.php

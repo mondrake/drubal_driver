@@ -25,6 +25,7 @@ use Drupal\Core\Database\TransactionOutOfOrderException;
 use Drupal\drudbal\Driver\Database\dbal\DbalExtension\MysqliExtension;
 use Drupal\drudbal\Driver\Database\dbal\DbalExtension\Oci8Extension;
 use Drupal\drudbal\Driver\Database\dbal\DbalExtension\PDOMySqlExtension;
+use Drupal\drudbal\Driver\Database\dbal\DbalExtension\PDOOciExtension;
 use Drupal\drudbal\Driver\Database\dbal\DbalExtension\PDOSqliteExtension;
 use GuzzleHttp\Psr7\Uri;
 
@@ -47,6 +48,7 @@ class Connection extends DatabaseConnection {
     'mysqli' => MysqliExtension::class,
     'oci8' => Oci8Extension::class,
     'pdo_mysql' => PDOMySqlExtension::class,
+    'pdo_oci' => PDOOciExtension::class,
     'pdo_sqlite' => PDOSqliteExtension::class,
   ];
 
@@ -351,7 +353,7 @@ class Connection extends DatabaseConnection {
       $options['url'] = $connection_options['dbal_url'];
     }
     if (!empty($connection_options['dbal_driver'])) {
-      $options['driver'] = $connection_options['dbal_driver'];
+      $options['driver'] = str_replace('-', '_', $connection_options['dbal_driver']);
     }
     // If there is a 'pdo' key in Drupal, that needs to be mapped to the
     // 'driverOptions' key in DBAL.
@@ -648,7 +650,7 @@ class Connection extends DatabaseConnection {
     if (isset($connection_options['dbal_extension_class'])) {
       return $connection_options['dbal_extension_class'];
     }
-    $driver_name = $connection_options['dbal_driver'];
+    $driver_name = str_replace('-', '_', $connection_options['dbal_driver']);
     if (isset(static::$driverSchemeAliases[$driver_name])) {
       $driver_name = static::$driverSchemeAliases[$driver_name];
     }
