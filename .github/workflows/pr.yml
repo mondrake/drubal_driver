@@ -74,20 +74,20 @@ jobs:
         composer config repositories.test-run '{"type": "path", "url": "drudbal_staging", "options": {"symlink": false}}'
         composer require "mondrake/drudbal:dev-test-run-branch" --no-progress --ansi
 
-    - name: Install Drupal
-      run: |
-        cp modules/contrib/drudbal/tests/github/install_* .
-        # Use the custom installer.
-        php install_cli.php
-        vendor/bin/drush runserver localhost:8080 &
-        sleep 1s
+#    - name: Install Drupal
+#      run: |
+#        cp modules/contrib/drudbal/tests/github/install_* .
+#        # Use the custom installer.
+#        php install_cli.php
+#        vendor/bin/drush runserver localhost:8080 &
+#        sleep 1s
 
-    - name: Report installation
-      run: |
-        php install_report.php
-        vendor/bin/drush core:status
-        vendor/bin/drush core:requirements
-        vendor/bin/drush pml --type=module --no-core
+#    - name: Report installation
+#      run: |
+#        php install_report.php
+#        vendor/bin/drush core:status
+#        vendor/bin/drush core:requirements
+#        vendor/bin/drush pml --type=module --no-core
 
     - name: Run test ${{ matrix.test-args }}
       run: vendor/bin/phpunit -c core --color=always ${{ matrix.test-args }}
@@ -156,20 +156,20 @@ jobs:
         composer config repositories.test-run '{"type": "path", "url": "drudbal_staging", "options": {"symlink": false}}'
         composer require "mondrake/drudbal:dev-test-run-branch" --no-progress --ansi
 
-    - name: Install Drupal
-      run: |
-        cp modules/contrib/drudbal/tests/github/install_* .
-        # Use the custom installer.
-        php install_cli.php
-        vendor/bin/drush runserver localhost:8080 &
-        sleep 1s
+#    - name: Install Drupal
+#      run: |
+#        cp modules/contrib/drudbal/tests/github/install_* .
+#        # Use the custom installer.
+#        php install_cli.php
+#        vendor/bin/drush runserver localhost:8080 &
+#        sleep 1s
 
-    - name: Report installation
-      run: |
-        php install_report.php
-        vendor/bin/drush core:status
-        vendor/bin/drush core:requirements
-        vendor/bin/drush pml --type=module --no-core
+#    - name: Report installation
+#      run: |
+#        php install_report.php
+#        vendor/bin/drush core:status
+#        vendor/bin/drush core:requirements
+#        vendor/bin/drush pml --type=module --no-core
 
     - name: Run test ${{ matrix.test-args }}
       run: vendor/bin/phpunit -c core --color=always ${{ matrix.test-args }}

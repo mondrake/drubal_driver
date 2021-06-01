@@ -224,7 +224,7 @@ class Connection extends DatabaseConnection {
       // Depending on the type of query we may need to return a different value.
       // See DatabaseConnection::defaultOptions() for a description of each
       // value.
-      switch ($options['return']) {
+      switch ($options['return'] ?? Database::RETURN_STATEMENT) {
         case Database::RETURN_STATEMENT:
           return $stmt;
 
