@@ -9,14 +9,15 @@ env:
     DRUDBAL_DRUPAL_PROFILE: "standard"
     SIMPLETEST_BASE_URL: "http://localhost:8080"
     PHPUNIT_SKIP_CLASS: '[
+      "Drupal\\KernelTests\\Core\\Cache\\ApcuBackendTest",
+      "Drupal\\KernelTests\\Core\\Cache\\EndOfTransactionQueriesTest",
       "Drupal\\KernelTests\\Core\\Database\\BasicSyntaxTest",
       "Drupal\\KernelTests\\Core\\Database\\ConnectionUnitTest",
       "Drupal\\KernelTests\\Core\\Database\\DatabaseExceptionWrapperTest",
       "Drupal\\KernelTests\\Core\\Database\\SchemaTest",
       "Drupal\\KernelTests\\Core\\Database\\StatementWrapperLegacyTest",
       "Drupal\\KernelTests\\Core\\Database\\StatementTest",
-      "Drupal\\KernelTests\\Core\\Cache\\ApcuBackendTest",
-      "Drupal\\KernelTests\\Core\\Cache\\EndOfTransactionQueriesTest",
+      "Drupal\\KernelTests\\Core\\Database\\TransactionTest",
       "Drupal\\Tests\\system\\Functional\\Database\\TemporaryQueryTest"
     ]'
     DRUPAL_TEST_RESULTS_DB: "sites/test_results.sqlite"
@@ -25,19 +26,25 @@ jobs:
 
 #################################
 
-  mysql-pdo:
-    name: "MySql with PDO"
-    runs-on: ubuntu-latest
+  oracle-oci8:
+    name: "Oracle on Oci8"
+    runs-on: ubuntu-20.04
     env:
-        DRUDBAL_ENV: "dbal/mysql"
-        DBAL_URL: "mysql://root:@0.0.0.0:3306/drudbal"
-        SIMPLETEST_DB: "dbal://root:@0.0.0.0:3306/drudbal?module=drudbal&dbal_driver=pdo_mysql"
+        DRUDBAL_ENV: "dbal/oci8"
+        DBAL_URL: "oci8://DRUDBAL:ORACLE@0.0.0.0:1521/XE"
+        SIMPLETEST_DB: "dbal://DRUDBAL:ORACLE@0.0.0.0:1521/XE?module=drudbal&dbal_driver=oci8#dru"
+
+    services:
+      oracle:
+        image: "wnameless/oracle-xe-11g-r2"
+        ports:
+          - "1521:1521"
 
     strategy:
       fail-fast: false
       matrix:
         php-version:
-          - "7.4"
+#          - "7.4"
           - "8.0"
         test-args:
           - "--group Database"
@@ -47,22 +54,13 @@ jobs:
 #          - "--group file"
 #          - "--group views"
 
-    services:
-      mysql:
-        image: "mysql:5.7"
-        options: >-
-          -e MYSQL_ALLOW_EMPTY_PASSWORD=yes
-          -e MYSQL_DATABASE=drudbal
-        ports:
-          - "3306:3306"
-
     steps:
     - name: Install PHP
       uses: "shivammathur/setup-php@v2"
       with:
         php-version: "${{ matrix.php-version }}"
         coverage: "none"
-        extensions: "pdo_mysql"
+        extensions: "oci8"
         ini-values: "zend.assertions=1"
 
     - name: Checkout Drupal
@@ -88,15 +86,24 @@ jobs:
         composer config repositories.test-run '{"type": "path", "url": "drudbal_staging", "options": {"symlink": false}}'
         composer require "mondrake/drudbal:dev-test-run-branch" --no-progress --ansi
 
-    - name: Install Drupal
+    - name: Patch doctrine/dbal
+      run: |
+        patch -d vendor/doctrine/dbal -p1 < modules/contrib/drudbal/tests/github/dbal/oci8/dbal.patch
+
+    - name: Create Oracle schema
       run: |
         cp modules/contrib/drudbal/tests/github/install_* .
+        php install_oracle.php
+
+    - name: Install Drupal
+      run: |
         # Use the custom installer.
         php install_cli.php
         vendor/bin/drush runserver localhost:8080 &
-        sleep 1s
+        sleep 5s
 
     - name: Report installation
+      continue-on-error: true
       run: |
         php install_report.php
         vendor/bin/drush core:status
@@ -104,5 +111,4 @@ jobs:
         vendor/bin/drush pml --type=module --no-core
 
     - name: Run test ${{ matrix.test-args }}
-#      run: vendor/bin/phpunit -c core --color=always ${{ matrix.test-args }}
-      run: vendor/bin/phpunit -c core --color=always modules/contrib/drudbal/tests/src/Kernel/TransactionTest.php
+      run: vendor/bin/phpunit -c core --color=always ${{ matrix.test-args }}

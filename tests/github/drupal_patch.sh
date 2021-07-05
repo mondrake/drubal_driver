@@ -9,5 +9,6 @@ curl https://git.drupalcode.org/project/drupal/-/merge_requests/291.diff | git a
 #3191623 Views aggregate queries do not escape the fields
 curl https://git.drupalcode.org/project/drupal/-/merge_requests/785.diff | git apply -v
 
+curl https://www.drupal.org/files/issues/2021-07-05/838992-pgsql-47.patch | git apply -v
 #ls -al drudbal_staging/tests/github/drupal_patch.sh
 #git apply -v drudbal_staging/tests/github/test.patch
